@@ -4,571 +4,350 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber-Voxel Architect v5.1 (Stable)</title>
+    <title>Voxel Architect v6.0 (Performance)</title>
     <style>
         body { 
             margin: 0; 
-            background: #000; 
+            background: #111; 
             overflow: hidden; 
-            font-family: 'Segoe UI', 'Courier New', monospace; 
-            user-select: none;
+            font-family: 'Segoe UI', monospace; 
         }
+
+        /* Video artık tamamen net ve arkada */
         #input_video { 
             position: absolute; 
             width: 100vw; 
             height: 100vh; 
             object-fit: cover; 
-            transform: scaleX(-1); 
+            transform: scaleX(-1); /* Ayna efekti */
             z-index: 1; 
-            opacity: 0.3; 
-            filter: grayscale(80%) contrast(1.2); 
         }
+
+        /* 3D Sahne videonun tam üzerinde */
         #three_canvas { 
             position: absolute; 
             top: 0; 
             left: 0; 
+            width: 100vw;
+            height: 100vh;
             z-index: 5; 
             pointer-events: none; 
         }
-        #biometric_canvas { 
-            position: absolute; 
-            width: 100vw; 
-            height: 100vh; 
-            z-index: 10; 
-            transform: scaleX(-1); 
-            pointer-events: none; 
-        }
+
+        /* UI Katmanı */
         #ui-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 20;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
             pointer-events: none;
         }
+
         .hud-panel { 
             position: absolute; 
-            top: 20px; 
-            left: 20px; 
-            color: #00f0ff; 
-            font-weight: bold; 
-            font-size: 14px;
-            text-shadow: 0 0 10px #00f0ff; 
-            border-left: 4px solid #00f0ff; 
+            top: 20px; left: 20px; 
+            background: rgba(0, 0, 0, 0.7);
             padding: 15px;
-            background: linear-gradient(90deg, rgba(0,20,40,0.8) 0%, rgba(0,0,0,0) 100%);
-            backdrop-filter: blur(5px);
-            pointer-events: auto; /* Butonlara tıklayabilmek için */
-        }
-        .stat-row { margin-bottom: 5px; display: flex; align-items: center; }
-        .stat-label { width: 80px; opacity: 0.8; font-size: 11px; letter-spacing: 1px; }
-        .stat-val { color: #fff; font-size: 16px; }
-        
-        #palette {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            border-radius: 20px;
-            border: 1px solid #00f0ff;
+            border-radius: 8px;
+            border-left: 5px solid #00ff00;
+            color: white;
             pointer-events: auto;
         }
-        .color-opt {
-            width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff;
-            cursor: pointer; transition: transform 0.2s;
+
+        .btn {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 15px;
+            margin-top: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
         }
-        .color-opt.active { transform: scale(1.2); box-shadow: 0 0 15px currentColor; }
-        
-        #instructions {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            text-align: right;
-            color: rgba(255,255,255,0.5);
-            font-size: 12px;
-            line-height: 1.5;
-        }
-        
-        /* Loading Ekranı Güncellemesi */
-        .loading-overlay {
+        .btn:hover { background: #444; }
+
+        /* Başlatma Ekranı */
+        #loader {
             position: fixed; top:0; left:0; width:100%; height:100%;
             background: #000; z-index: 999;
-            display: flex; justify-content: center; align-items: center; flex-direction: column;
-            color: #00f0ff;
-            font-family: 'Courier New', monospace;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: #00ff00;
         }
         #start-btn {
-            margin-top: 20px;
-            padding: 15px 40px;
-            background: transparent;
-            border: 2px solid #00f0ff;
-            color: #00f0ff;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            text-shadow: 0 0 10px #00f0ff;
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-            transition: all 0.3s;
-            display: none; /* JS ile gösterilecek */
+            font-size: 24px; padding: 20px 50px;
+            background: #00ff00; color: #000; border: none;
+            cursor: pointer; font-weight: bold; margin-top: 20px;
+            border-radius: 5px;
         }
-        #start-btn:hover {
-            background: rgba(0, 240, 255, 0.2);
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
-            letter-spacing: 2px;
+
+        #cursor-indicator {
+            position: absolute;
+            width: 20px; height: 20px;
+            border: 2px solid yellow;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            display: none; /* JS ile yönetilecek */
+            pointer-events: none;
         }
-        .loading-text {
-            animation: blink 1s infinite;
-        }
-        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
-    
-    <!-- Three.js Import Map -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
 </head>
 <body>
-    <div class="loading-overlay" id="loader">
-        <h1 class="loading-text" id="status-text">SİSTEM HAZIRLANIYOR...</h1>
-        <div style="font-size: 12px; color: #666; margin-top: 10px;">Lütfen kamera izni verin</div>
+
+    <!-- Başlatma Ekranı -->
+    <div id="loader">
+        <h1>VOXEL ARCHITECT v6.0</h1>
+        <p>Lütfen kameranızı açmaya hazır olun.</p>
         <button id="start-btn">SİSTEMİ BAŞLAT</button>
     </div>
 
+    <!-- UI -->
     <div id="ui-layer">
         <div class="hud-panel">
-            <div style="font-size: 18px; margin-bottom: 10px; border-bottom: 1px solid #00f0ff; padding-bottom: 5px;">MİMAR_OS v5.1</div>
-            <div class="stat-row"><span class="stat-label">DURUM:</span> <span id="mode" class="stat-val">BEKLENİYOR</span></div>
-            <div class="stat-row"><span class="stat-label">VOKSEL:</span> <span id="count" class="stat-val">0</span></div>
-            <div class="stat-row"><span class="stat-label">FPS:</span> <span id="fps" class="stat-val">60</span></div>
-            <div style="margin-top: 10px; font-size: 10px; color: #ff3333;" id="alert-msg"></div>
-            <button id="save-btn" style="background:transparent; border:1px solid #00f0ff; color:#00f0ff; margin-top:5px; cursor:pointer; padding: 5px; width: 100%;">KAYDET</button>
-            <button id="clear-btn" style="background:transparent; border:1px solid #ff3333; color:#ff3333; margin-top:5px; cursor:pointer; padding: 5px; width: 100%;">SIFIRLA</button>
+            <h3>KONTROL PANELİ</h3>
+            <div>FPS: <span id="fps">0</span></div>
+            <div>Blok Sayısı: <span id="count">0</span></div>
+            <div>Durum: <span id="status" style="color:yellow">Bekleniyor...</span></div>
+            <br>
+            <button class="btn" id="save-btn">Kaydet</button>
+            <button class="btn" id="clear-btn" style="border-color:red; color:red;">Hepsini Sil</button>
         </div>
-
-        <div id="palette">
-            <div class="color-opt active" style="background-color: #00f0ff;" data-c="0x00f0ff"></div>
-            <div class="color-opt" style="background-color: #ff0055;" data-c="0xff0055"></div>
-            <div class="color-opt" style="background-color: #ffff00;" data-c="0xffff00"></div>
-            <div class="color-opt" style="background-color: #00ff66;" data-c="0x00ff66"></div>
-            <div class="color-opt" style="background-color: #ffffff;" data-c="0xffffff"></div>
-        </div>
-
-        <div id="instructions">
-            SAĞ EL ÇİMDİK: İNŞA ET<br>
-            SOL EL YUMRUK: DÜNYAYI ÇEVİR<br>
-            İKİ EL AÇIK: RENK MENÜSÜ<br>
-            İŞARET PARMAĞI: SİLME LAZERİ
-        </div>
+        <!-- 2D İmleç (İşaret parmağını takip eder) -->
+        <div id="cursor-indicator"></div>
     </div>
 
-    <video id="input_video" playsinline muted></video>
+    <video id="input_video" playsinline></video>
     <canvas id="three_canvas"></canvas>
-    <canvas id="biometric_canvas"></canvas>
 
-    <!-- MediaPipe Scriptleri -->
+    <!-- Kütüphaneler -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-
-        // --- DEĞİŞKENLER ---
+    <script>
+        // --- TEMEL AYARLAR ---
         const videoElement = document.getElementById('input_video');
-        const bioCanvas = document.getElementById('biometric_canvas');
-        const bioCtx = bioCanvas.getContext('2d');
-        const modeEl = document.getElementById('mode');
-        const countEl = document.getElementById('count');
+        const canvasElement = document.getElementById('three_canvas');
+        const statusEl = document.getElementById('status');
         const fpsEl = document.getElementById('fps');
-        const paletteEl = document.getElementById('palette');
-        const loader = document.getElementById('loader');
-        const startBtn = document.getElementById('start-btn');
-        const statusText = document.getElementById('status-text');
+        const countEl = document.getElementById('count');
+        const cursorEl = document.getElementById('cursor-indicator');
+        
+        // Three.js Değişkenleri
+        let scene, camera, renderer;
+        let voxelGroup;
+        const voxels = []; // Blokları tutan dizi
+        const voxelSize = 1.5; // Blok boyutu
+        
+        // Logic Değişkenleri
+        let isPinching = false;
+        let lastPinchTime = 0;
+        const pinchCooldown = 500; // 500ms (Yarım saniye) bekleme süresi - spam engellemek için
 
-        let audioCtx;
-        let isAudioInit = false;
-
-        // --- SES MOTORU ---
-        function initAudio() {
-            if (isAudioInit) return;
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                audioCtx.resume();
-                isAudioInit = true;
-                console.log("Audio Engine Started");
-            } catch(e) {
-                console.warn("Audio init failed:", e);
-            }
-        }
-
-        function playSound(type) {
-            if (!isAudioInit || !audioCtx) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            const now = audioCtx.currentTime;
-            if (type === 'build') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(600, now);
-                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now); osc.stop(now + 0.1);
-            } else if (type === 'delete') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.linearRampToValueAtTime(50, now + 0.2);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                osc.start(now); osc.stop(now + 0.2);
-            } else if (type === 'ui') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(800, now);
-                gain.gain.setValueAtTime(0.05, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                osc.start(now); osc.stop(now + 0.05);
-            }
-        }
-
-        // --- THREE.JS KURULUMU ---
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
-
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 25;
-
-        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three_canvas'), antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.toneMapping = THREE.ReinhardToneMapping;
-
-        // Post Processing
-        const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
-
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.1;
-        bloomPass.strength = 1.2;
-        bloomPass.radius = 0.5;
-        composer.addPass(bloomPass);
-
-        // Sahne Işıkları
-        const worldGroup = new THREE.Group();
-        scene.add(worldGroup);
-        const gridHelper = new THREE.GridHelper(50, 50, 0x003344, 0x001122);
-        worldGroup.add(gridHelper);
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(10, 20, 10);
-        scene.add(dirLight);
-
-        // --- VOKSEL SİSTEMİ ---
-        const voxelSize = 1.0;
-        const voxels = new Map();
-        let currentColor = 0x00f0ff;
-
-        document.querySelectorAll('.color-opt').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                document.querySelectorAll('.color-opt').forEach(el => el.classList.remove('active'));
-                opt.classList.add('active');
-                currentColor = parseInt(opt.dataset.c);
-                playSound('ui');
-            });
+        // --- BAŞLAT BUTONU ---
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('loader').style.display = 'none';
+            initThree();
+            initMediaPipe();
         });
 
-        // Parçacıklar
-        const particleGeo = new THREE.BufferGeometry();
-        const particleCount = 200;
-        const pPos = new Float32Array(particleCount * 3);
-        const pVel = new Float32Array(particleCount * 3);
-        const pLife = new Float32Array(particleCount);
-        particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-        const particleMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, blending: THREE.AdditiveBlending });
-        const particleSystem = new THREE.Points(particleGeo, particleMat);
-        worldGroup.add(particleSystem);
-        for(let i=0; i<particleCount; i++) pLife[i] = 0;
+        // --- THREE.JS BAŞLATMA (Hafif Versiyon) ---
+        function initThree() {
+            scene = new THREE.Scene();
 
-        function spawnExplosion(x, y, z, color) {
-            particleMat.color.setHex(color);
-            for(let i=0; i<30; i++) {
-                const idx = Math.floor(Math.random() * particleCount);
-                pPos[idx*3] = x; pPos[idx*3+1] = y; pPos[idx*3+2] = z;
-                pVel[idx*3] = (Math.random()-0.5) * 0.5;
-                pVel[idx*3+1] = (Math.random()-0.5) * 0.5;
-                pVel[idx*3+2] = (Math.random()-0.5) * 0.5;
-                pLife[idx] = 1.0;
-            }
+            // Kamera ayarları: Z ekseninde geriye çekiyoruz
+            // FOV 50, Aspect ratio pencereye göre
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 40; 
+
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvasElement,
+                alpha: true, // Arka plan şeffaf olsun ki videoyu görelim
+                antialias: true // Kenar yumuşatma
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Işıklandırma (Basic Material kullanacağımız için çok şart değil ama bulunsun)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            // Tüm blokların ekleneceği grup
+            voxelGroup = new THREE.Group();
+            scene.add(voxelGroup);
+
+            // Animasyon Döngüsü
+            animate();
         }
 
-        function updateParticles() {
-            const positions = particleSystem.geometry.attributes.position.array;
-            for(let i=0; i<particleCount; i++) {
-                if(pLife[i] > 0) {
-                    positions[i*3] += pVel[i*3];
-                    positions[i*3+1] += pVel[i*3+1];
-                    positions[i*3+2] += pVel[i*3+2];
-                    pLife[i] -= 0.05;
-                    if(pLife[i] <= 0) positions[i*3+1] = 9999; 
-                }
-            }
-            particleSystem.geometry.attributes.position.needsUpdate = true;
+        // --- MEDIAPIPE (EL TAKİBİ) ---
+        function initMediaPipe() {
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            hands.setOptions({
+                maxNumHands: 1, // Sadece tek el (performans ve karışıklığı önlemek için)
+                modelComplexity: 0, // 0: Lite (Hızlı), 1: Full. Hız için 0 seçtim.
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onResults);
+
+            const cameraUtils = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 1280,
+                height: 720
+            });
+            cameraUtils.start();
         }
 
-        const cursorMesh = new THREE.Mesh(new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5 }));
-        worldGroup.add(cursorMesh);
-        cursorMesh.visible = false;
-        
-        const laserLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]), new THREE.LineBasicMaterial({ color: 0xff0055, linewidth: 2 }));
-        worldGroup.add(laserLine);
-        laserLine.visible = false;
-
-        function createVoxel(x, y, z, color) {
-            const geo = new THREE.BoxGeometry(voxelSize*0.95, voxelSize*0.95, voxelSize*0.95);
-            const mat = new THREE.MeshPhysicalMaterial({ color: color, metalness: 0.2, roughness: 0.1, transmission: 0.1, emissive: color, emissiveIntensity: 0.5 });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(x, y, z);
-            const edges = new THREE.EdgesGeometry(geo);
-            mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true })));
-            worldGroup.add(mesh);
-            voxels.set(`${x},${y},${z}`, mesh);
-            countEl.innerText = voxels.size;
-            spawnExplosion(x, y, z, color);
-            playSound('build');
-        }
-
-        function removeVoxel(key) {
-            if (voxels.has(key)) {
-                const mesh = voxels.get(key);
-                spawnExplosion(mesh.position.x, mesh.position.y, mesh.position.z, 0xff3333);
-                worldGroup.remove(mesh);
-                mesh.geometry.dispose();
-                mesh.material.dispose();
-                voxels.delete(key);
-                countEl.innerText = voxels.size;
-                playSound('delete');
-            }
-        }
-
-        // --- HANDS & LOGIC ---
-        let smoothedHands = { Left: [], Right: [] };
-        let isGrabbing = false, lastHandPos = new THREE.Vector3();
-        let isBuilding = false, lastBuildPos = "";
-        let paletteOpen = false, paletteTimer = 0;
-
-        function getLandmarkPos(landmarks, index) {
-            const x = (0.5 - landmarks[index].x) * 30;
-            const y = (0.5 - landmarks[index].y) * 20;
-            const z = -landmarks[index].z * 30; 
-            return new THREE.Vector3(x, y, z);
-        }
-
-        function drawHandSkeleton(ctx, landmarks, label, color) {
-            const w = ctx.canvas.width;
-            const h = ctx.canvas.height;
-            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
-            const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[9,10],[10,11],[11,12],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17],[0,5]];
-            ctx.beginPath();
-            connections.forEach(([i, j]) => { ctx.moveTo(landmarks[i].x * w, landmarks[i].y * h); ctx.lineTo(landmarks[j].x * w, landmarks[j].y * h); });
-            ctx.stroke();
-            landmarks.forEach(p => { ctx.beginPath(); ctx.arc(p.x * w, p.y * h, 3, 0, Math.PI*2); ctx.fill(); });
-        }
-
+        // --- ANA MANTIK (ELİ AL, KOORDİNATA ÇEVİR, BLOK KOY) ---
         function onResults(results) {
-            bioCtx.clearRect(0, 0, bioCanvas.width, bioCanvas.height);
-            cursorMesh.visible = false;
-            laserLine.visible = false;
-            
             if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-                isGrabbing = false; isBuilding = false; paletteOpen = false; paletteEl.style.opacity = 0;
-                modeEl.innerText = "SİNYAL YOK";
+                statusEl.innerText = "El Bulunamadı";
+                cursorEl.style.display = 'none';
                 return;
             }
 
-            let lHand = null, rHand = null;
+            const landmarks = results.multiHandLandmarks[0]; // İlk el
+            
+            // 1. İşaret Parmağı Ucu (8) ve Başparmak Ucu (4)
+            const indexFinger = landmarks[8];
+            const thumb = landmarks[4];
 
-            results.multiHandedness.forEach((handRef, index) => {
-                const rawLandmarks = results.multiHandLandmarks[index];
-                const label = handRef.label;
-                const targetArr = smoothedHands[label];
-                if (targetArr.length === 0) rawLandmarks.forEach(l => targetArr.push({...l}));
-                else rawLandmarks.forEach((l, i) => {
-                    targetArr[i].x += (l.x - targetArr[i].x) * 0.3;
-                    targetArr[i].y += (l.y - targetArr[i].y) * 0.3;
-                    targetArr[i].z += (l.z - targetArr[i].z) * 0.3;
-                });
-                if (label === 'Left') lHand = targetArr;
-                if (label === 'Right') rHand = targetArr;
-                drawHandSkeleton(bioCtx, targetArr, label, label === 'Right' ? '#00f0ff' : '#ff0055');
-            });
+            // 2. İmleci Ekranda Göster (Sarı daire)
+            // landmarks.x 0-1 arasındadır. Videoyu aynaladığımız için (1-x) yapıyoruz.
+            const screenX = (1 - indexFinger.x) * window.innerWidth;
+            const screenY = indexFinger.y * window.innerHeight;
 
-            if (lHand && rHand) {
-                const lOpen = lHand[8].y < lHand[5].y && lHand[12].y < lHand[9].y;
-                const rOpen = rHand[8].y < rHand[5].y && rHand[12].y < rHand[9].y;
-                if (lOpen && rOpen && Math.abs(lHand[0].x - rHand[0].x) < 0.3) {
-                    paletteTimer++;
-                    if (paletteTimer > 30) { paletteOpen = true; paletteEl.style.opacity = 1; modeEl.innerText = "MOD: RENK SEÇİMİ"; }
-                } else {
-                    paletteTimer = 0; if (paletteOpen) { paletteOpen = false; paletteEl.style.opacity = 0; }
+            cursorEl.style.display = 'block';
+            cursorEl.style.left = screenX + 'px';
+            cursorEl.style.top = screenY + 'px';
+
+            // 3. Çimdik Kontrolü (Mesafe Hesaplama)
+            // Basit Pisagor: a^2 + b^2 = c^2
+            const distance = Math.sqrt(
+                Math.pow(indexFinger.x - thumb.x, 2) + 
+                Math.pow(indexFinger.y - thumb.y, 2)
+            );
+
+            // Eşik değeri: 0.05 (Bu değer kamera yakınlığına göre değişebilir ama genelde iyidir)
+            const isPinchingNow = distance < 0.05;
+
+            if (isPinchingNow) {
+                cursorEl.style.borderColor = "red"; // Çimdik yapınca kırmızı olsun
+                cursorEl.style.backgroundColor = "rgba(255,0,0,0.5)";
+                statusEl.innerText = "İNŞA EDİLİYOR";
+
+                // Eğer yeni bir çimdikse ve bekleme süresi dolmuşsa
+                const now = Date.now();
+                if (!isPinching && (now - lastPinchTime > pinchCooldown)) {
+                    placeBlockAtCursor(indexFinger.x, indexFinger.y);
+                    lastPinchTime = now;
+                    isPinching = true;
                 }
-            }
-            if (paletteOpen) return;
-
-            if (lHand) {
-                const isFist = lHand[8].y > lHand[5].y && lHand[12].y > lHand[9].y;
-                const handPos3D = getLandmarkPos(lHand, 9);
-                if (isFist) {
-                    if (!isGrabbing) { isGrabbing = true; lastHandPos.copy(handPos3D); playSound('ui'); }
-                    else {
-                        const delta = new THREE.Vector3().subVectors(handPos3D, lastHandPos);
-                        worldGroup.position.add(delta);
-                        worldGroup.rotation.y += (handPos3D.x - lastHandPos.x) * 0.5;
-                        worldGroup.rotation.x -= (handPos3D.y - lastHandPos.y) * 0.5;
-                        lastHandPos.copy(handPos3D);
-                        modeEl.innerText = "MOD: TAŞIMA & DÖNDÜRME";
-                    }
-                } else isGrabbing = false;
-            }
-
-            if (rHand) {
-                const thumbTip = rHand[4], indexTip = rHand[8], midTip = rHand[12];
-                const distPinch = Math.sqrt(Math.pow(thumbTip.x-indexTip.x,2) + Math.pow(thumbTip.y-indexTip.y,2));
-                const isPinching = distPinch < 0.05;
-                const isGun = indexTip.y < rHand[6].y && midTip.y > rHand[10].y; 
-                const pointerPos = getLandmarkPos(rHand, 8);
-                const localPos = worldGroup.worldToLocal(pointerPos.clone());
-                const gx = Math.round(localPos.x / voxelSize) * voxelSize;
-                const gy = Math.round(localPos.y / voxelSize) * voxelSize;
-                const gz = Math.round(localPos.z / voxelSize) * voxelSize;
-
-                if (isGun) {
-                    modeEl.innerText = "MOD: SİLİCİ (LAZER)";
-                    const handBase = getLandmarkPos(rHand, 5);
-                    const laserEnd = worldGroup.localToWorld(new THREE.Vector3(gx, gy, gz));
-                    laserLine.geometry.setFromPoints([handBase, laserEnd]);
-                    laserLine.visible = true;
-                    cursorMesh.position.copy(laserEnd);
-                    cursorMesh.material.color.setHex(0xff0000);
-                    cursorMesh.visible = true;
-                    const key = `${gx},${gy},${gz}`;
-                    if (isPinching) removeVoxel(key);
-                } else {
-                    cursorMesh.position.copy(worldGroup.localToWorld(new THREE.Vector3(gx, gy, gz)));
-                    cursorMesh.material.color.setHex(0x00ff00);
-                    cursorMesh.visible = true;
-                    modeEl.innerText = "MOD: İNŞAAT";
-                    if (isPinching) {
-                        const key = `${gx},${gy},${gz}`;
-                        if (!isBuilding && key !== lastBuildPos) {
-                            if (!voxels.has(key)) createVoxel(gx, gy, gz, currentColor);
-                            lastBuildPos = key; isBuilding = true;
-                        }
-                    } else { isBuilding = false; lastBuildPos = ""; }
-                }
+            } else {
+                cursorEl.style.borderColor = "yellow";
+                cursorEl.style.backgroundColor = "transparent";
+                statusEl.innerText = "Hareket Algılanıyor";
+                isPinching = false;
             }
         }
 
-        // --- INIT ---
+        // --- BLOK KOYMA FONKSİYONU ---
+        function placeBlockAtCursor(x, y) {
+            // MediaPipe (0..1) koordinatlarını Three.js Dünya Koordinatlarına çevirmemiz lazım.
+            // Kameramız Z=40'ta duruyor. Blokları Z=0 düzlemine koyacağız.
+            
+            // Bu matematik biraz karışık gelebilir ama temel olarak ekranın 2D noktasını 3D uzaya iz düşürüyoruz.
+            const vec = new THREE.Vector3();
+            const pos = new THREE.Vector3();
+
+            // Ekran koordinatlarını -1 ile +1 arasına (NDC) çevir
+            // X'i aynalamayı unutmuyoruz: (1-x)
+            vec.set(
+                ((1 - x) * 2) - 1,
+                -(y * 2) + 1,
+                0.5 
+            );
+
+            vec.unproject(camera);
+            vec.sub(camera.position).normalize();
+
+            // Kamera Z=40, Hedef Z=0. Mesafe = 40.
+            const distanceToPlane = -camera.position.z / vec.z;
+            pos.copy(camera.position).add(vec.multiplyScalar(distanceToPlane));
+
+            // Grid'e oturtma (Snap to Grid)
+            const snapX = Math.round(pos.x / voxelSize) * voxelSize;
+            const snapY = Math.round(pos.y / voxelSize) * voxelSize;
+            
+            // Aynı yerde blok var mı kontrol et (Basitçe pozisyona bakıyoruz)
+            const key = `${snapX},${snapY}`;
+            const exists = voxels.some(v => v.position.x === snapX && v.position.y === snapY);
+
+            if (!exists) {
+                createVoxel(snapX, snapY, 0);
+            }
+        }
+
+        function createVoxel(x, y, z) {
+            // Neon tarzı bloklar
+            // MeshBasicMaterial ışık hesaplamaz, bu yüzden ÇOK HIZLIDIR.
+            const geometry = new THREE.BoxGeometry(voxelSize - 0.1, voxelSize - 0.1, voxelSize - 0.1);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffcc, // Camgöbeği rengi
+                wireframe: false,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(x, y, z);
+            
+            // Estetik için kenar çizgileri (Siyah)
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+            cube.add(line);
+
+            voxelGroup.add(cube);
+            voxels.push(cube);
+            
+            countEl.innerText = voxels.length;
+        }
+
+        // --- YARDIMCI FONKSİYONLAR ---
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-            if (Math.random() < 0.1) fpsEl.innerText = Math.round(1/delta);
-            updateParticles();
-            composer.render();
-        }
-        animate();
-
-        // Başlangıç Kontrolü
-        window.addEventListener('load', () => {
-            // MediaPipe Hands kontrol
-            if (typeof Hands === 'undefined' || typeof Camera === 'undefined') {
-                statusText.innerText = "KÜTÜPHANELER YÜKLENEMEDİ!";
-                statusText.style.color = "red";
-                return;
-            }
             
-            // Butonu göster
-            statusText.innerText = "SİSTEM HAZIR";
-            startBtn.style.display = 'block';
+            // FPS Sayacı
+            fpsEl.innerText = Math.round(1 / clock.getDelta());
 
-            startBtn.addEventListener('click', async () => {
-                startBtn.innerText = "BAŞLATILIYOR...";
-                initAudio(); // Ses motorunu başlat
+            // Sahneyi çiz
+            renderer.render(scene, camera);
+        }
 
-                const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-                hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-                hands.onResults(onResults);
-
-                try {
-                    const cameraUtils = new Camera(videoElement, {
-                        onFrame: async () => { await hands.send({image: videoElement}); },
-                        width: 1280, height: 720
-                    });
-                    await cameraUtils.start();
-                    
-                    // Her şey yolundaysa
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 500);
-                    playSound('ui');
-                } catch (err) {
-                    console.error(err);
-                    statusText.innerText = "KAMERA HATASI: İZİN VERİN";
-                    startBtn.innerText = "TEKRAR DENE";
-                }
-            });
-        });
-
-        // Save/Load
-        document.getElementById('save-btn').addEventListener('click', () => {
-            const data = [];
-            voxels.forEach((mesh, key) => data.push({ pos: key, color: mesh.material.color.getHex() }));
-            localStorage.setItem('voxelWorld', JSON.stringify(data));
-            document.getElementById('alert-msg').innerText = "KAYDEDİLDİ";
-            playSound('ui');
-        });
+        // Temizle Butonu
         document.getElementById('clear-btn').addEventListener('click', () => {
-            voxels.forEach(mesh => { worldGroup.remove(mesh); mesh.geometry.dispose(); });
-            voxels.clear(); countEl.innerText = "0"; playSound('delete');
+            voxels.forEach(v => voxelGroup.remove(v));
+            voxels.length = 0;
+            countEl.innerText = "0";
         });
-        setTimeout(() => {
-            const saved = localStorage.getItem('voxelWorld');
-            if (saved) {
-                JSON.parse(saved).forEach(d => {
-                    const [x,y,z] = d.pos.split(',').map(Number);
-                    if (!voxels.has(d.pos)) createVoxel(x, y, z, d.color);
-                });
-            }
-        }, 1000);
 
+        // Pencere Boyutlandırma
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
-            bioCanvas.width = window.innerWidth;
-            bioCanvas.height = window.innerHeight;
         });
-        bioCanvas.width = window.innerWidth; bioCanvas.height = window.innerHeight;
+
     </script>
 </body>
 </html>
